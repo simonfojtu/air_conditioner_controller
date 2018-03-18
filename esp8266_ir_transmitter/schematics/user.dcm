@@ -1,0 +1,13 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP ESP-12-Q
+F /home/simon/pro/doc/esp8266_Specifications_English.pdf
+$ENDCMP
+#
+$CMP LP2950
+D Linear Regulator
+K POWER REGUL
+F /home/simon/pro/doc/lp2950-33.pdf
+$ENDCMP
+#
+#End Doc Library
