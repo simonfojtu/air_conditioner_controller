@@ -1,0 +1,3 @@
+[submodule "esp8266_ir_transmitter/firmware/3rd/mqtt"]
+	path = esp8266_ir_transmitter/firmware/3rd/mqtt
+	url = https://github.com/tuanpmt/esp_mqtt
