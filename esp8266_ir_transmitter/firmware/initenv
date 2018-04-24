@@ -1,12 +1,12 @@
-#!/bin/bash
+#!/bin/bash -e
+
+# Set this to the location of the ESP8266 toolchain
+ESP8266_TOOLCHAIN=<path_to_toolchain_directory>
 
 export USE_OPENSDK=yes
-
-export XTENSA_TOOLS_ROOT=<path_to>/esp-open-sdk/xtensa-lx106-elf/bin/
-
+export XTENSA_TOOLS_ROOT=$ESP8266_TOOLCHAIN/esp-open-sdk/xtensa-lx106-elf/bin/
 export PATH=$XTENSA_TOOLS_ROOT:$PATH
-export SDK_BASE=<path_to>/esp-open-sdk/ESP8266_NONOS_SDK-2.1.0-18-g61248df
-export ESPTOOL=<path_to>/esp-open-sdk/esptool/esptool.py
+export SDK_BASE=$ESP8266_TOOLCHAIN/esp-open-sdk/ESP8266_NONOS_SDK-2.1.0-18-g61248df
+export ESPTOOL=$ESP8266_TOOLCHAIN/esp-open-sdk/esptool/esptool.py
 export ESPPORT=/dev/ttyUSB0
 export ESPBAUD=460800
-
