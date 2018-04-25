@@ -19,6 +19,11 @@ flash as a binary. Also handles the hit counter on the main page.
 
 
 static ACSettings acSettings;
+//= {
+//    .temp = 21;
+//    .fan = AUTO;
+//    .mode = COOL;
+//    .onOff = false;
 
 int ICACHE_FLASH_ATTR cgiAC(HttpdConnData *connData) {
     int len;
@@ -31,15 +36,14 @@ int ICACHE_FLASH_ATTR cgiAC(HttpdConnData *connData) {
 
     // ON/OFF toggle
     len = httpdFindArg(connData->post->buff, "onoff", buff, sizeof(buff));
-    if (len != 0) {
+    acSettings.onOff = false;
+    if (len > 0) {
         acSettings.onOff = true;
-    } else {
-        acSettings.onOff = false;
     }
 
     // Temperature setpoint
     len = httpdFindArg(connData->post->buff, "temp", buff, sizeof(buff));
-    if (len != 0) {
+    if (len > 0) {
         uint8_t temp = atoi(buff);
         if (temp >= 16 && temp <= 31) {
             acSettings.temp = temp;
@@ -48,40 +52,39 @@ int ICACHE_FLASH_ATTR cgiAC(HttpdConnData *connData) {
 
     // Fan speed
     len = httpdFindArg(connData->post->buff, "fan", buff, sizeof(buff));
-    if (len != 0) {
+    if (len > 0) {
         acSettings.fan = AUTO; //!< default fan speed
-        if (os_strcmp(buff, "MAX")) {
+        if (os_strcmp(buff, "MAX")==0) {
             acSettings.fan = MAX;
-        } else if (os_strcmp(buff, "MED")) {
+        } else if (os_strcmp(buff, "MED")==0) {
             acSettings.fan = MED;
-        } else if (os_strcmp(buff, "MIN")) {
+        } else if (os_strcmp(buff, "MIN")==0) {
             acSettings.fan = MIN;
         }
     }
 
     // A/C mode
     len = httpdFindArg(connData->post->buff, "mode", buff, sizeof(buff));
-    if (len != 0) {
+    if (len > 0) {
         acSettings.mode = COOL; //!< default mode
-        if (os_strcmp(buff, "SUN")) {
+        if (os_strcmp(buff, "SUN")==0) {
             acSettings.mode = SUN;
-        } else if (os_strcmp(buff, "FAN")) {
+        } else if (os_strcmp(buff, "FAN")==0) {
             acSettings.mode = FAN;
-        } else if (os_strcmp(buff, "COOL")) {
+        } else if (os_strcmp(buff, "COOL")==0) {
             acSettings.mode = COOL;
-        } else if (os_strcmp(buff, "SMART")) {
+        } else if (os_strcmp(buff, "SMART")==0) {
             acSettings.fan = SMART;
-        } else if (os_strcmp(buff, "DROPS")) {
+        } else if (os_strcmp(buff, "DROPS")==0) {
             acSettings.fan = DROPS;
         }
     }
 
     // Sleep toggle
     len = httpdFindArg(connData->post->buff, "sleep", buff, sizeof(buff));
-    if (len != 0) {
+    acSettings.sleep = false;
+    if (len > 0) {
         acSettings.sleep = true;
-    } else {
-        acSettings.sleep = false;
     }
 
     send(acSettings);

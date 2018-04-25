@@ -1,9 +1,9 @@
-<html><head><title>Test</title>
+<html><head><title>AC control</title>
 <link rel="stylesheet" type="text/css" href="style.css">
 </head>
 <body>
 <div id="main">
-<h1>The Airconditioning controller</h1>
+<h1>The Air conditioning controller</h1>
 <form method="post" action="ac.cgi">
 <h2>ON/OFF</h2>
 <input type="submit" name="onoff" value="toggle">
