@@ -51,32 +51,6 @@ void irInit()
 
 void processCommand(const uint16_t* parsedDurations, const uint8_t numParsedDurations)
 {
-//    // Parse the supplied command and extract the carrier on/off durations
-//    // This is done before transmitting so that the string parsing time does not affect the IR signal timing
-//    numParsedDurations = 0;
-//
-//    const char *c = command;
-//    while (*c != 0 && numParsedDurations < MAX_DURATIONS)
-//    {
-//        // Iterate over the next sequence of digits
-//        uint16_t duration = 0;
-//        while (*c != 0isdigit(*c))
-//        {
-//            duration = duration * 10 + (*c - 48);
-//            ++c;
-//        }
-//
-//        // Skip the next chars until we find another digit or EOF (theoretically after exactly one space)
-//        while (*c != 0 && isdigit(*c) == false)
-//            ++c;
-//        
-//        // Store the duration
-//        parsedDurations[numParsedDurations++] = duration;
-//    }
-    
-    // Now transmit the parsed command
-//    stopRecording();
-
     for (int index = 0; index < numParsedDurations; index += 2)
     {
         startCarrier();
