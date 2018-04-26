@@ -31,7 +31,7 @@ FW_BASE		= firmware
 XTENSA_TOOLS_ROOT ?= 
 
 # base directory of the ESP8266 SDK package, absolute
-SDK_BASE	?= /home/simon/pro/toolchains/esp8266/esp-open-sdk/ESP8266_NONOS_SDK-2.1.0-18-g61248df
+SDK_BASE	?= esp-open-sdk/ESP8266_NONOS_SDK-2.1.0-18-g61248df
 
 # Opensdk patches stdint.h when compiled with an internal SDK. If you run into compile problems pertaining to
 # redefinition of int types, try setting this to 'yes'.
@@ -74,7 +74,7 @@ SDK_LDDIR	= ld
 SDK_INCDIR	= include include/json
 
 # select which tools to use as compiler, librarian and linker
-XTENSA_TOOLS_ROOT=/home/simon/pro/toolchains/esp8266/esp-open-sdk/xtensa-lx106-elf/bin/
+XTENSA_TOOLS_ROOT?=
 
 CC		:= $(XTENSA_TOOLS_ROOT)xtensa-lx106-elf-gcc
 AR		:= $(XTENSA_TOOLS_ROOT)xtensa-lx106-elf-ar
