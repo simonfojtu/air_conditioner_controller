@@ -19,7 +19,7 @@ ldscript_memspecific.ld:
 
 $(TARGET_OUT): $(APP_AR) $(EXTRA_LD_SCRIPTS)
 	$(vecho) "LD $@"
-	$(Q) $(LD) -Llibesphttpd -L$(SDK_LIBDIR) $(LD_SCRIPT) $(EXTRA_LD_SCRIPTS) $(LDFLAGS) -Wl,--start-group $(LIBS) $(APP_AR) -Wl,--end-group -o $@ 
+	$(Q) $(LD) -Llibesphttpd -Lmqtt/firmware -L$(SDK_LIBDIR) $(LD_SCRIPT) $(EXTRA_LD_SCRIPTS) $(LDFLAGS) -Wl,--start-group $(LIBS) $(APP_AR) -Wl,--end-group -o $@ 
 
 $(FW_BASE): $(TARGET_OUT)
 	$(vecho) "FW $@"

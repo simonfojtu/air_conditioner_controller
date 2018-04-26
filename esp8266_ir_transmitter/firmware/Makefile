@@ -48,21 +48,26 @@ ESPBAUD		?= 460800
 APPGEN		?= $(SDK_BASE)/tools/gen_appbin.py
 
 # name for the target project
-TARGET		= httpd
+TARGET		= accontrol
 
 # which modules (subdirectories) of the project to include in compiling
 MODULES		= user
-EXTRA_INCDIR	= include libesphttpd/include
+EXTRA_INCDIR	= include libesphttpd/include mqtt/include
 
 # libraries used in this project, mainly provided by the SDK
 LIBS		= c gcc hal phy pp net80211 wpa main lwip crypto
 #Add in esphttpd lib
 LIBS += esphttpd
+#Add in mqtt lib
+LIBS += mqtt
 
 # compiler flags using during compilation of source files
-CFLAGS		= -Os -ggdb -std=gnu99 -Werror -Wpointer-arith -Wundef -Wall -Wl,-EL -fno-inline-functions \
+CFLAGS		= -Os -ggdb -std=gnu99 -Wpointer-arith -Wundef -Wall -Wl,-EL -fno-inline-functions \
 		-nostdlib -mlongcalls -mtext-section-literals  -D__ets__ -DICACHE_FLASH \
 		-Wno-address
+
+# mqtt requires a config file
+CFLAGS		+= -DLOCAL_CONFIG_AVAILABLE
 
 # linker flags used to generate the main object file
 LDFLAGS		= -nostdlib -Wl,--no-check-sections -u call_user_start -Wl,-static
@@ -181,19 +186,27 @@ $1/%.o: %.S
 	$(Q) $(CC) $(INCDIR) $(MODULE_INCDIR) $(EXTRA_INCDIR) $(SDK_INCDIR) $(CFLAGS)  -c $$< -o $$@
 endef
 
-.PHONY: all checkdirs clean libesphttpd default-tgt
+.PHONY: all checkdirs clean libesphttpd mqtt default-tgt
 
 all: checkdirs $(TARGET_OUT) $(FW_BASE)
 
-libesphttpd/Makefile:
-	$(Q) echo "No libesphttpd submodule found. Using git to fetch it..."
+
+submodules:
+	$(Q) echo "No submodule found. Using git to fetch it..."
 	$(Q) git submodule init
 	$(Q) git submodule update
+
+mqtt/Makefile: submodules
+
+mqtt: mqtt/Makefile
+	$(Q) make -C mqtt lib USE_OPENSDK=$(USE_OPENSDK)
+
+libesphttpd/Makefile: submodules
 
 libesphttpd: libesphttpd/Makefile
 	$(Q) make -C libesphttpd USE_OPENSDK=$(USE_OPENSDK)
 
-$(APP_AR): libesphttpd $(OBJ)
+$(APP_AR): libesphttpd mqtt $(OBJ)
 	$(vecho) "AR $@"
 	$(Q) $(AR) cru $@ $(OBJ)
 
@@ -204,6 +217,7 @@ $(BUILD_DIR):
 
 clean:
 	$(Q) make -C libesphttpd clean
+	$(Q) make -C mqtt clean
 	$(Q) rm -f $(APP_AR)
 	$(Q) rm -f $(TARGET_OUT)
 	$(Q) find $(BUILD_BASE) -type f | xargs rm -f

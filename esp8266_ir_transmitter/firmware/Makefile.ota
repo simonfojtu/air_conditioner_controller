@@ -33,7 +33,7 @@ CFLAGS += -DOTA_TAGNAME=\"$(TAGNAME)\"
 define genappbin
 $(1): $$(APP_AR)
 	$$(vecho) LD $$@
-	$$(Q) $$(LD) -Llibesphttpd -L$$(SDK_LIBDIR) $(2) $$(LDFLAGS) -Wl,--start-group $$(LIBS) $$(APP_AR) -Wl,--end-group -o $$@
+	$$(Q) $$(LD) -Llibesphttpd -Lmqtt/firmware -L$$(SDK_LIBDIR) $(2) $$(LDFLAGS) -Wl,--start-group $$(LIBS) $$(APP_AR) -Wl,--end-group -o $$@
 
 $(3): $(1)
 	$$(vecho) APPGEN $$@
