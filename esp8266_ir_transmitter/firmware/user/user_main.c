@@ -28,6 +28,10 @@ some pictures of cats.
 #include "espmissingincludes.h"
 
 #include "ir.h"
+#include "mqtt.h"
+
+
+static ETSTimer mqttTimer;
 
 //Function that tells the authentication system what users/passwords live on the system.
 //This is disabled in the default build; if you want to try it, enable the authBasic line in
@@ -110,6 +114,137 @@ HttpdBuiltInUrl builtInUrls[]={
 	{NULL, NULL, NULL}
 };
 
+#define MQTT_HOST "10.0.0.3"
+#define MQTT_PORT 1883
+#define DEFAULT_SECURITY 0
+#define MQTT_CLIENT_ID "AC_01"
+#define MQTT_USER "USER"
+#define MQTT_PASS "PASS"
+#define MQTT_KEEPALIVE 120
+#define MQTT_CLEAN_SESSION 1
+
+static MQTT_Client mqttClient;
+static void ICACHE_FLASH_ATTR wifiConnectCb(uint8_t status)
+{
+  if (status == STATION_GOT_IP) {
+    MQTT_Connect(&mqttClient);
+  } else {
+    MQTT_Disconnect(&mqttClient);
+  }
+}
+static void ICACHE_FLASH_ATTR mqttConnectedCb(uint32_t *args)
+{
+  MQTT_Client* client = (MQTT_Client*)args;
+  os_printf("MQTT: Connected\r\n");
+//  MQTT_Subscribe(client, "/mqtt/topic/0", 0);
+//  MQTT_Subscribe(client, "/mqtt/topic/1", 1);
+//  MQTT_Subscribe(client, "/mqtt/topic/2", 2);
+
+  MQTT_Publish(client, "/mqtt/topic/0", "hello0", 6, 0, 0);
+  MQTT_Publish(client, "/mqtt/topic/1", "hello1", 6, 1, 0);
+  MQTT_Publish(client, "/mqtt/topic/2", "hello2", 6, 2, 0);
+
+}
+
+static void ICACHE_FLASH_ATTR mqttDisconnectedCb(uint32_t *args)
+{
+  MQTT_Client* client = (MQTT_Client*)args;
+  os_printf("MQTT: Disconnected\r\n");
+}
+
+static void ICACHE_FLASH_ATTR mqttPublishedCb(uint32_t *args)
+{
+  MQTT_Client* client = (MQTT_Client*)args;
+  os_printf("MQTT: Published\r\n");
+}
+
+static void ICACHE_FLASH_ATTR mqttDataCb(uint32_t *args, const char* topic, uint32_t topic_len, const char *data, uint32_t data_len)
+{
+  char *topicBuf = (char*)os_zalloc(topic_len + 1),
+        *dataBuf = (char*)os_zalloc(data_len + 1);
+
+  MQTT_Client* client = (MQTT_Client*)args;
+  os_memcpy(topicBuf, topic, topic_len);
+  topicBuf[topic_len] = 0;
+  os_memcpy(dataBuf, data, data_len);
+  dataBuf[data_len] = 0;
+  os_printf("Receive topic: %s, data: %s \r\n", topicBuf, dataBuf);
+  os_free(topicBuf);
+  os_free(dataBuf);
+}
+
+
+static ETSTimer WiFiLinker;
+typedef void (*WifiCallback)(uint8_t);
+WifiCallback wifiCb = wifiConnectCb;
+static uint8_t wifiStatus = STATION_IDLE, lastWifiStatus = STATION_IDLE;
+static void ICACHE_FLASH_ATTR wifi_check_ip(void *arg)
+{
+  struct ip_info ipConfig;
+  os_timer_disarm(&WiFiLinker);
+  wifi_get_ip_info(STATION_IF, &ipConfig);
+  wifiStatus = wifi_station_get_connect_status();
+  if (wifiStatus == STATION_GOT_IP && ipConfig.ip.addr != 0)
+  {
+    os_timer_setfn(&WiFiLinker, (os_timer_func_t *)wifi_check_ip, NULL);
+    os_timer_arm(&WiFiLinker, 2000, 0);
+  }
+  else
+  {
+    if (wifi_station_get_connect_status() == STATION_WRONG_PASSWORD)
+    {
+      os_printf("STATION_WRONG_PASSWORD\r\n");
+      wifi_station_connect();
+    }
+    else if (wifi_station_get_connect_status() == STATION_NO_AP_FOUND)
+    {
+      os_printf("STATION_NO_AP_FOUND\r\n");
+      wifi_station_connect();
+    }
+    else if (wifi_station_get_connect_status() == STATION_CONNECT_FAIL)
+    {
+      os_printf("STATION_CONNECT_FAIL\r\n");
+      wifi_station_connect();
+    }
+    else
+    {
+      //os_printf("STATION_IDLE\r\n");
+    }
+
+    os_timer_setfn(&WiFiLinker, (os_timer_func_t *)wifi_check_ip, NULL);
+    os_timer_arm(&WiFiLinker, 500, 0);
+  }
+  if (wifiStatus != lastWifiStatus) {
+    lastWifiStatus = wifiStatus;
+    if (wifiCb)
+      wifiCb(wifiStatus);
+  }
+}
+
+static void ICACHE_FLASH_ATTR mqttInit(void)
+{
+  MQTT_InitConnection(&mqttClient, MQTT_HOST, MQTT_PORT, DEFAULT_SECURITY);
+
+  if ( !MQTT_InitClient(&mqttClient, MQTT_CLIENT_ID, MQTT_USER, MQTT_PASS, MQTT_KEEPALIVE, MQTT_CLEAN_SESSION) )
+  {
+    os_printf("Failed to initialize properly. Check MQTT version.\n");
+    return;
+  }
+  MQTT_InitLWT(&mqttClient, "/lwt", "offline", 0, 0);
+  MQTT_OnConnected(&mqttClient, mqttConnectedCb);
+  MQTT_OnDisconnected(&mqttClient, mqttDisconnectedCb);
+  MQTT_OnPublished(&mqttClient, mqttPublishedCb);
+  MQTT_OnData(&mqttClient, mqttDataCb);
+
+  os_timer_disarm(&WiFiLinker);
+  os_timer_setfn(&WiFiLinker, (os_timer_func_t *)wifi_check_ip, NULL);
+  os_timer_arm(&WiFiLinker, 1000, 0);
+}
+
+static void ICACHE_FLASH_ATTR sendData(void *arg)
+{
+  MQTT_Publish(&mqttClient, "/status/stil_alive", MQTT_CLIENT_ID, 6, 0, 0);
+}
 
 //Main routine. Initialize stdout, the I/O, filesystem and the webserver and we're done.
 void user_init(void) {
@@ -125,6 +260,13 @@ void user_init(void) {
 	espFsInit((void*)(webpages_espfs_start));
 #endif
 	httpdInit(builtInUrls, 80);
+    mqttInit();
+
+    // register repeated task 'sendData'
+    os_timer_disarm(&mqttTimer);
+    os_timer_setfn(&mqttTimer, (os_timer_func_t *)sendData, NULL);
+    os_timer_arm(&mqttTimer, 10000, true);
+
 	os_printf("\nReady\n");
 }
 
