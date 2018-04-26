@@ -4,3 +4,6 @@
 [submodule "esp8266_ir_transmitter/firmware/libesphttpd"]
 	path = esp8266_ir_transmitter/firmware/libesphttpd
 	url = http://git.spritesserver.nl/libesphttpd.git/
+[submodule "esp8266_ir_transmitter/firmware/mqtt"]
+	path = esp8266_ir_transmitter/firmware/mqtt
+	url = https://github.com/tuanpmt/esp_mqtt.git
