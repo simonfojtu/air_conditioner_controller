@@ -140,10 +140,8 @@ static void ICACHE_FLASH_ATTR mqttConnectedCb(uint32_t *args)
 //  MQTT_Subscribe(client, "/mqtt/topic/1", 1);
 //  MQTT_Subscribe(client, "/mqtt/topic/2", 2);
 
-  MQTT_Publish(client, "/mqtt/topic/0", "hello0", 6, 0, 0);
-  MQTT_Publish(client, "/mqtt/topic/1", "hello1", 6, 1, 0);
-  MQTT_Publish(client, "/mqtt/topic/2", "hello2", 6, 2, 0);
-
+  // client, topic, message, message length, qos, retain
+  MQTT_Publish(client, "/status/" MQTT_CLIENT_ID, "connected", 9, 0, 0);
 }
 
 static void ICACHE_FLASH_ATTR mqttDisconnectedCb(uint32_t *args)
@@ -243,7 +241,7 @@ static void ICACHE_FLASH_ATTR mqttInit(void)
 
 static void ICACHE_FLASH_ATTR sendData(void *arg)
 {
-  MQTT_Publish(&mqttClient, "/status/stil_alive", MQTT_CLIENT_ID, 6, 0, 0);
+  MQTT_Publish(&mqttClient, "/status/" MQTT_CLIENT_ID, "still_alive", 11, 0, 0);
 }
 
 //Main routine. Initialize stdout, the I/O, filesystem and the webserver and we're done.
@@ -265,7 +263,7 @@ void user_init(void) {
     // register repeated task 'sendData'
     os_timer_disarm(&mqttTimer);
     os_timer_setfn(&mqttTimer, (os_timer_func_t *)sendData, NULL);
-    os_timer_arm(&mqttTimer, 10000, true);
+    os_timer_arm(&mqttTimer, 60000, true);
 
 	os_printf("\nReady\n");
 }
