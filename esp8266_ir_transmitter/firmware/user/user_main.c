@@ -114,6 +114,7 @@ HttpdBuiltInUrl builtInUrls[]={
 	{NULL, NULL, NULL}
 };
 
+// TODO move applicable definitions to Makefile
 #define MQTT_HOST "10.0.0.3"
 #define MQTT_PORT 1883
 #define DEFAULT_SECURITY 0
@@ -133,7 +134,7 @@ static void ICACHE_FLASH_ATTR wifiConnectCb(uint8_t status)
   }
 }
 static void ICACHE_FLASH_ATTR mqttConnectedCb(uint32_t *args)
-{
+
   MQTT_Client* client = (MQTT_Client*)args;
   os_printf("MQTT: Connected\r\n");
 //  MQTT_Subscribe(client, "/mqtt/topic/0", 0);
@@ -228,7 +229,7 @@ static void ICACHE_FLASH_ATTR mqttInit(void)
     os_printf("Failed to initialize properly. Check MQTT version.\n");
     return;
   }
-  MQTT_InitLWT(&mqttClient, "/lwt", "offline", 0, 0);
+  MQTT_InitLWT(&mqttClient, "/status" MQTT_CLIENT_ID, "offline", 0, 0);
   MQTT_OnConnected(&mqttClient, mqttConnectedCb);
   MQTT_OnDisconnected(&mqttClient, mqttDisconnectedCb);
   MQTT_OnPublished(&mqttClient, mqttPublishedCb);
@@ -241,7 +242,8 @@ static void ICACHE_FLASH_ATTR mqttInit(void)
 
 static void ICACHE_FLASH_ATTR sendData(void *arg)
 {
-  MQTT_Publish(&mqttClient, "/status/" MQTT_CLIENT_ID, "still_alive", 11, 0, 0);
+  //MQTT_Publish(&mqttClient, "/status/" MQTT_CLIENT_ID, "still_alive", 11, 0, 0);
+  // TODO send current data
 }
 
 //Main routine. Initialize stdout, the I/O, filesystem and the webserver and we're done.
