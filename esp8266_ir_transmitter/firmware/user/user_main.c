@@ -252,22 +252,22 @@ static void ICACHE_FLASH_ATTR sendData(void *arg)
 {
     // TODO send current data
     float vout, temperature;
-    const uint8_t bufferLength = 4;
+    const uint8_t bufferLength = 3;
     char buffer[bufferLength];
     // uint8_t command = 0b1101; // start, sgl, channel0, msbf
     vout = spi_transaction(HSPI, 4, 0b1101, 0, 0, 0, 0, 11, 0) * 3.3 / 1024;
     temperature = ntc(4150, 22000, (3.3 - vout) / vout * 10000);
-    os_printf("CH0 vout: %dmV\n", (int)(vout*1000));
-    os_printf("CH0: %ddC\n", (int) (temperature*10));
-    sprintf(buffer, "%3d\0", (int)temperature);
-    MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/update/tempIN", buffer, bufferLength-1, 0, 0);
+    //os_printf("CH0 vout: %dmV\n", (int)(vout*1000));
+    //os_printf("CH0: %ddC\n", (int) (temperature*10));
+    sprintf(buffer, "%3d", (int) (temperature*10));
+    MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/update/tempIN", buffer, bufferLength, 0, 0);
 
     vout = spi_transaction(HSPI, 4, 0b1111, 0, 0, 0, 0, 11, 0) * 3.3 / 1024;
     temperature = ntc(4150, 22000, (3.3 - vout) / vout * 10000);
-    os_printf("CH1 vout: %dmV\n", (int)(vout*1000));
-    os_printf("CH1: %ddC\n", (int) (temperature*10));
-    sprintf(buffer, "%3d\0", (int)temperature);
-    MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/update/tempOUT", buffer, bufferLength-1, 0, 0);
+    //os_printf("CH1 vout: %dmV\n", (int)(vout*1000));
+    //os_printf("CH1: %ddC\n", (int) (temperature*10));
+    sprintf(buffer, "%3d", (int) (temperature*10));
+    MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/update/tempOUT", buffer, bufferLength, 0, 0);
 }
 
 //Main routine. Initialize stdout, the I/O, filesystem and the webserver and we're done.
