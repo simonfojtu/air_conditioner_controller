@@ -26,9 +26,11 @@ some pictures of cats.
 #include "webpages-espfs.h"
 #include "cgi-test.h"
 #include "espmissingincludes.h"
+#include <math.h>
 
 #include "ir.h"
 #include "mqtt.h"
+#include "driver/spi.h"
 
 
 static ETSTimer mqttTimer;
@@ -134,7 +136,7 @@ static void ICACHE_FLASH_ATTR wifiConnectCb(uint8_t status)
   }
 }
 static void ICACHE_FLASH_ATTR mqttConnectedCb(uint32_t *args)
-
+{
   MQTT_Client* client = (MQTT_Client*)args;
   os_printf("MQTT: Connected\r\n");
 //  MQTT_Subscribe(client, "/mqtt/topic/0", 0);
@@ -142,7 +144,7 @@ static void ICACHE_FLASH_ATTR mqttConnectedCb(uint32_t *args)
 //  MQTT_Subscribe(client, "/mqtt/topic/2", 2);
 
   // client, topic, message, message length, qos, retain
-  MQTT_Publish(client, "/status/" MQTT_CLIENT_ID, "connected", 9, 0, 0);
+  MQTT_Publish(client, "/" MQTT_CLIENT_ID "/status", "connected", 9, 0, 0);
 }
 
 static void ICACHE_FLASH_ATTR mqttDisconnectedCb(uint32_t *args)
@@ -229,7 +231,7 @@ static void ICACHE_FLASH_ATTR mqttInit(void)
     os_printf("Failed to initialize properly. Check MQTT version.\n");
     return;
   }
-  MQTT_InitLWT(&mqttClient, "/status" MQTT_CLIENT_ID, "offline", 0, 0);
+  MQTT_InitLWT(&mqttClient, "/" MQTT_CLIENT_ID "/status", "offline", 0, 0);
   MQTT_OnConnected(&mqttClient, mqttConnectedCb);
   MQTT_OnDisconnected(&mqttClient, mqttDisconnectedCb);
   MQTT_OnPublished(&mqttClient, mqttPublishedCb);
@@ -240,10 +242,32 @@ static void ICACHE_FLASH_ATTR mqttInit(void)
   os_timer_arm(&WiFiLinker, 1000, 0);
 }
 
+// Compute temperature in degrees C given NTC thermocouple parameters
+static float ICACHE_FLASH_ATTR ntc(int B, int R0, int R) {
+    float rinf = R0 * exp(-B / (273.15 + 25));
+    return B / log(R / rinf) - 273.15;
+}
+
 static void ICACHE_FLASH_ATTR sendData(void *arg)
 {
-  //MQTT_Publish(&mqttClient, "/status/" MQTT_CLIENT_ID, "still_alive", 11, 0, 0);
-  // TODO send current data
+    // TODO send current data
+    float vout, temperature;
+    const uint8_t bufferLength = 4;
+    char buffer[bufferLength];
+    // uint8_t command = 0b1101; // start, sgl, channel0, msbf
+    vout = spi_transaction(HSPI, 4, 0b1101, 0, 0, 0, 0, 11, 0) * 3.3 / 1024;
+    temperature = ntc(4150, 22000, (3.3 - vout) / vout * 10000);
+    os_printf("CH0 vout: %dmV\n", (int)(vout*1000));
+    os_printf("CH0: %ddC\n", (int) (temperature*10));
+    sprintf(buffer, "%3d\0", (int)temperature);
+    MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/update/tempIN", buffer, bufferLength-1, 0, 0);
+
+    vout = spi_transaction(HSPI, 4, 0b1111, 0, 0, 0, 0, 11, 0) * 3.3 / 1024;
+    temperature = ntc(4150, 22000, (3.3 - vout) / vout * 10000);
+    os_printf("CH1 vout: %dmV\n", (int)(vout*1000));
+    os_printf("CH1: %ddC\n", (int) (temperature*10));
+    sprintf(buffer, "%3d\0", (int)temperature);
+    MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/update/tempOUT", buffer, bufferLength-1, 0, 0);
 }
 
 //Main routine. Initialize stdout, the I/O, filesystem and the webserver and we're done.
@@ -266,6 +290,9 @@ void user_init(void) {
     os_timer_disarm(&mqttTimer);
     os_timer_setfn(&mqttTimer, (os_timer_func_t *)sendData, NULL);
     os_timer_arm(&mqttTimer, 60000, true);
+
+    // TODO move to HW initialization section
+    spi_init(HSPI);
 
 	os_printf("\nReady\n");
 }

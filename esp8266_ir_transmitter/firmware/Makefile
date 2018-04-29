@@ -51,11 +51,11 @@ APPGEN		?= $(SDK_BASE)/tools/gen_appbin.py
 TARGET		= accontrol
 
 # which modules (subdirectories) of the project to include in compiling
-MODULES		= user
-EXTRA_INCDIR	= include libesphttpd/include mqtt/include mqtt/mqtt/include
+MODULES		= user libspi/driver
+EXTRA_INCDIR	= include libesphttpd/include mqtt/include mqtt/mqtt/include libspi/include
 
 # libraries used in this project, mainly provided by the SDK
-LIBS		= c gcc hal phy pp net80211 wpa main lwip crypto ssl
+LIBS		= c gcc hal phy pp net80211 wpa main lwip crypto ssl m
 #Add in esphttpd lib
 LIBS += esphttpd
 #Add in mqtt lib
@@ -205,6 +205,8 @@ libesphttpd/Makefile: submodules
 
 libesphttpd: libesphttpd/Makefile
 	$(Q) make -C libesphttpd USE_OPENSDK=$(USE_OPENSDK)
+
+libspi/driver/spi.c: submodules
 
 $(APP_AR): libesphttpd mqtt $(OBJ)
 	$(vecho) "AR $@"
