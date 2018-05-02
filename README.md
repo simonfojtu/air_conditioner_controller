@@ -15,6 +15,8 @@ connected to main unit via 5 wires:
 - +5V (blue)
 - GND (purple)
 
+JST-SM 2.5mm connector, male connector view from the key side: leftmost = gnd
+
 =================
 ## ESP 8266 troubleshooting
 
