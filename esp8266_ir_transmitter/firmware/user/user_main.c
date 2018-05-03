@@ -26,11 +26,9 @@ some pictures of cats.
 #include "webpages-espfs.h"
 #include "cgi-test.h"
 #include "espmissingincludes.h"
-#include <math.h>
 
-#include "ir.h"
+#include "ac.h"
 #include "mqtt.h"
-#include "driver/spi.h"
 
 
 static ETSTimer mqttTimer;
@@ -89,6 +87,7 @@ HttpdBuiltInUrl builtInUrls[]={
 	{"/ac.tpl", cgiEspFsTemplate, tplAC},
 	{"/index.tpl", cgiEspFsTemplate, tplCounter},
 	{"/ac.cgi", cgiAC, NULL},
+//	{"/flash/*", authBasic, myPassFn},
 #ifdef INCLUDE_FLASH_FNS
 	{"/flash/next", cgiGetFirmwareNext, &uploadParams},
 	{"/flash/upload", cgiUploadFirmware, &uploadParams},
@@ -139,11 +138,7 @@ static void ICACHE_FLASH_ATTR mqttConnectedCb(uint32_t *args)
 {
   MQTT_Client* client = (MQTT_Client*)args;
   os_printf("MQTT: Connected\r\n");
-//  MQTT_Subscribe(client, "/mqtt/topic/0", 0);
-//  MQTT_Subscribe(client, "/mqtt/topic/1", 1);
-//  MQTT_Subscribe(client, "/mqtt/topic/2", 2);
-
-  // client, topic, message, message length, qos, retain
+  MQTT_Subscribe(client, "/" MQTT_CLIENT_ID "/command", 0);
   MQTT_Publish(client, "/" MQTT_CLIENT_ID "/status", "connected", 9, 0, 0);
 }
 
@@ -159,19 +154,79 @@ static void ICACHE_FLASH_ATTR mqttPublishedCb(uint32_t *args)
   os_printf("MQTT: Published\r\n");
 }
 
+static ACSettings ICACHE_FLASH_ATTR command2settings(char *dataBuf, uint32_t data_len)
+{
+    ACSettings settings;
+
+    char *token;
+    char *state;
+    
+    for (token = strtok_r(dataBuf, "&", &state);
+         token != NULL;
+         token = strtok_r(NULL, "&", &state))
+    {
+        char *name, *value, *tmp;
+        name = strtok_r(token, "=", &tmp);
+        value = strtok_r(NULL, "=", &tmp);
+
+        if (os_strcmp(name, "temp") == 0)
+            settings.temp = atoi(value);
+        if (os_strcmp(name, "mode") == 0)
+        {
+            if (os_strcmp(value, "SUN")==0) {
+                settings.mode = SUN;
+            } else if (os_strcmp(value, "FAN")==0) {
+                settings.mode = FAN;
+            } else if (os_strcmp(value, "COOL")==0) {
+                settings.mode = COOL;
+            } else if (os_strcmp(value, "SMART")==0) {
+                settings.fan = SMART;
+            } else if (os_strcmp(value, "DROPS")==0) {
+                settings.fan = DROPS;
+            } else {
+                os_printf("Unknown mode '%s'", value);
+            }
+        }
+        if (os_strcmp(name, "fan") == 0)
+        {
+            if (os_strcmp(value, "MAX")==0) {
+                settings.fan = MAX;
+            } else if (os_strcmp(value, "MED")==0) {
+                settings.fan = MED;
+            } else if (os_strcmp(value, "MIN")==0) {
+                settings.fan = MIN;
+            } else if (os_strcmp(value, "AUTO")==0) {
+                settings.fan = AUTO;
+            } else {
+                os_printf("Unknown fan value '%s'", value);
+            }
+        }
+        if (os_strcmp(name, "onoff") == 0 && os_strcmp(value, "1") == 0)
+            settings.onOff = true;
+        if (os_strcmp(name, "sleep") == 0 && os_strcmp(value, "1") == 0)
+            settings.sleep = true;
+
+    }
+    return settings;
+}
+
 static void ICACHE_FLASH_ATTR mqttDataCb(uint32_t *args, const char* topic, uint32_t topic_len, const char *data, uint32_t data_len)
 {
-  char *topicBuf = (char*)os_zalloc(topic_len + 1),
-        *dataBuf = (char*)os_zalloc(data_len + 1);
+    char *topicBuf = (char*)os_zalloc(topic_len + 1),
+          *dataBuf = (char*)os_zalloc(data_len + 1);
 
-  MQTT_Client* client = (MQTT_Client*)args;
-  os_memcpy(topicBuf, topic, topic_len);
-  topicBuf[topic_len] = 0;
-  os_memcpy(dataBuf, data, data_len);
-  dataBuf[data_len] = 0;
-  os_printf("Receive topic: %s, data: %s \r\n", topicBuf, dataBuf);
-  os_free(topicBuf);
-  os_free(dataBuf);
+    os_memcpy(topicBuf, topic, topic_len);
+    topicBuf[topic_len] = 0;
+    os_memcpy(dataBuf, data, data_len);
+    dataBuf[data_len] = 0;
+    os_printf("Receive topic: %s, data: %s \r\n", topicBuf, dataBuf);
+    if (os_strcmp(topicBuf, "/" MQTT_CLIENT_ID "/command") == 0)
+    {
+        // send IR command to AC unit
+        set(command2settings(dataBuf, data_len + 1));
+    }
+    os_free(topicBuf);
+    os_free(dataBuf);
 }
 
 
@@ -242,38 +297,24 @@ static void ICACHE_FLASH_ATTR mqttInit(void)
   os_timer_arm(&WiFiLinker, 1000, 0);
 }
 
-// Compute temperature in degrees C given NTC thermocouple parameters
-static float ICACHE_FLASH_ATTR ntc(int B, int R0, int R) {
-    float rinf = R0 * exp(-B / (273.15 + 25));
-    return B / log(R / rinf) - 273.15;
-}
 
 static void ICACHE_FLASH_ATTR sendData(void *arg)
 {
-    // TODO send current data
-    float vout, temperature;
     const uint8_t bufferLength = 3;
     char buffer[bufferLength];
-    // uint8_t command = 0b1101; // start, sgl, channel0, msbf
-    vout = spi_transaction(HSPI, 4, 0b1101, 0, 0, 0, 0, 11, 0) * 3.3 / 1024;
-    temperature = ntc(4150, 22000, (3.3 - vout) / vout * 10000);
-    //os_printf("CH0 vout: %dmV\n", (int)(vout*1000));
-    //os_printf("CH0: %ddC\n", (int) (temperature*10));
-    sprintf(buffer, "%3d", (int) (temperature*10));
+    ACStatus status = get();
+    // Send temperature in deci degrees
+    sprintf(buffer, "%3d", (int) (status.temperatureIn * 10));
     MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/update/tempIN", buffer, bufferLength, 0, 0);
 
-    vout = spi_transaction(HSPI, 4, 0b1111, 0, 0, 0, 0, 11, 0) * 3.3 / 1024;
-    temperature = ntc(4150, 22000, (3.3 - vout) / vout * 10000);
-    //os_printf("CH1 vout: %dmV\n", (int)(vout*1000));
-    //os_printf("CH1: %ddC\n", (int) (temperature*10));
-    sprintf(buffer, "%3d", (int) (temperature*10));
+    sprintf(buffer, "%3d", (int) (status.temperatureOut * 10));
     MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/update/tempOUT", buffer, bufferLength, 0, 0);
 }
 
 //Main routine. Initialize stdout, the I/O, filesystem and the webserver and we're done.
 void user_init(void) {
 	stdoutInit();
-    irInit();
+    acInit();
 	captdnsInit();
 
 	// 0x40200000 is the base address for spi flash memory mapping, ESPFS_POS is the position
@@ -290,9 +331,6 @@ void user_init(void) {
     os_timer_disarm(&mqttTimer);
     os_timer_setfn(&mqttTimer, (os_timer_func_t *)sendData, NULL);
     os_timer_arm(&mqttTimer, 60000, true);
-
-    // TODO move to HW initialization section
-    spi_init(HSPI);
 
 	os_printf("\nReady\n");
 }

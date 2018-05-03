@@ -14,10 +14,14 @@ typedef struct {
     bool sleep;
 } ACSettings;
 
+typedef struct {
+    ACSettings settings;
+    float temperatureIn;
+    float temperatureOut;
+} ACStatus;
 
-uint8_t acEncode(const ACSettings settings, uint8_t * message, uint8_t length);
-void irEncode(uint8_t* message, uint8_t message_length, uint16_t* encoded);
-void send(ACSettings settings);
-
+void set(ACSettings settings);
+ACStatus get(void);
+void acInit(void);
 
 #endif

@@ -18,13 +18,6 @@ flash as a binary. Also handles the hit counter on the main page.
 #include "ac.h"
 
 
-static ACSettings acSettings;
-//= {
-//    .temp = 21;
-//    .fan = AUTO;
-//    .mode = COOL;
-//    .onOff = false;
-
 int ICACHE_FLASH_ATTR cgiAC(HttpdConnData *connData) {
     int len;
     char buff[1024];
@@ -36,7 +29,7 @@ int ICACHE_FLASH_ATTR cgiAC(HttpdConnData *connData) {
 
     // ON/OFF toggle
     len = httpdFindArg(connData->post->buff, "onoff", buff, sizeof(buff));
-    acSettings.onOff = false;
+    ACSettings acSettings = get().settings;
     if (len > 0) {
         acSettings.onOff = true;
     }
@@ -87,7 +80,7 @@ int ICACHE_FLASH_ATTR cgiAC(HttpdConnData *connData) {
         acSettings.sleep = true;
     }
 
-    send(acSettings);
+    set(acSettings);
 
     httpdRedirect(connData, "ac.tpl");
     return HTTPD_CGI_DONE;
