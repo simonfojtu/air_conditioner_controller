@@ -180,6 +180,8 @@ void acInit(void) {
     // initialize SPI for communication with MCP3002
     spi_init(HSPI);
 
+    readTemperature();
+
     // set up repeating task to update temperature
     os_timer_disarm(&updateTimer);
     os_timer_setfn(&updateTimer, (os_timer_func_t *)readTemperature, NULL);
