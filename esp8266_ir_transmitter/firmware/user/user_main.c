@@ -219,11 +219,11 @@ static void ICACHE_FLASH_ATTR mqttDataCb(uint32_t *args, const char* topic, uint
     topicBuf[topic_len] = 0;
     os_memcpy(dataBuf, data, data_len);
     dataBuf[data_len] = 0;
-    os_printf("Receive topic: %s, data: %s \r\n", topicBuf, dataBuf);
+    os_printf("Received topic: %s, data: %s \r\n", topicBuf, dataBuf);
     if (os_strcmp(topicBuf, "/" MQTT_CLIENT_ID "/command") == 0)
     {
         // send IR command to AC unit
-        set(command2settings(dataBuf, data_len + 1));
+        //set(command2settings(dataBuf, data_len + 1));
     }
     os_free(topicBuf);
     os_free(dataBuf);
@@ -300,15 +300,21 @@ static void ICACHE_FLASH_ATTR mqttInit(void)
 
 static void ICACHE_FLASH_ATTR sendData(void *arg)
 {
-    const uint8_t bufferLength = 3;
+    const uint8_t bufferLength = 16;
     char buffer[bufferLength];
+    int len, integer, decimal;
     ACStatus status = get();
-    // Send temperature in deci degrees
-    sprintf(buffer, "%3d", (int) (status.temperatureIn * 10));
-    MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/update/tempIN", buffer, bufferLength, 0, 0);
 
-    sprintf(buffer, "%3d", (int) (status.temperatureOut * 10));
-    MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/update/tempOUT", buffer, bufferLength, 0, 0);
+    // Send temperature in degrees C
+    integer = status.temperatureIn;
+    decimal = (status.temperatureIn - integer) * 10;
+    len = sprintf(buffer, "%d.%d", integer, decimal);
+    MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/update/tempIN", buffer, len, 0, 0);
+
+    integer = status.temperatureOut;
+    decimal = (status.temperatureOut - integer) * 10;
+    len = sprintf(buffer, "%d.%d", integer, decimal);
+    MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/update/tempOUT", buffer, len, 0, 0);
 }
 
 //Main routine. Initialize stdout, the I/O, filesystem and the webserver and we're done.
