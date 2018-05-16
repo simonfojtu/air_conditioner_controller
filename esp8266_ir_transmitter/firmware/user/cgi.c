@@ -80,7 +80,7 @@ int ICACHE_FLASH_ATTR cgiAC(HttpdConnData *connData) {
         acSettings.sleep = true;
     }
 
-    set(acSettings);
+    send(acSettings);
 
     httpdRedirect(connData, "ac.tpl");
     return HTTPD_CGI_DONE;

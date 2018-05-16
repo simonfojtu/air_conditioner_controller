@@ -8,13 +8,14 @@
 static ACStatus status;
 static ETSTimer updateTimer;
 
+bool isPowered();
 
 /**
  * Convert the AC settings to a binary representation
  */
 uint8_t acEncode(const ACSettings settings, uint8_t * message, uint8_t length) {
     if (length < 12 * 4) {
-    	os_printf("FIXME: acEncode: message buffer too short (%d), expected at least 48.\n", length);
+    	os_printf("AC: FIXME: acEncode: message buffer too short (%d), expected at least 48.\n", length);
         return -1;
     }
 
@@ -104,9 +105,48 @@ void irEncode(uint8_t* message, uint8_t message_length, uint16_t* encoded) {
 }
 
 /**
+ * Send a command to the AC unit to power up
+ */
+void start(void) {
+    if (!isPowered()) {
+        status.settings.onOff = true;
+        send(status.settings);
+    }
+}
+
+/**
+ * Send a command to the AC unit to power down
+ */
+void stop(void) {
+    if (isPowered()) {
+        status.settings.onOff = true;
+        send(status.settings);
+    }
+}
+
+void setTemperature(uint8_t temperatures) {
+    os_printf("AC: setTemperature: Not implemented yet\n");
+// TODO implement this
+}
+
+
+void setMode(ac_mode_t mode) {
+    os_printf("AC: setMode: Not implemented yet\n");
+// TODO implement this
+}
+
+
+void setFanSpeed(ac_fan_t fan) {
+    os_printf("AC: setFanSpeed: Not implemented yet\n");
+// TODO implement this
+}
+
+
+/**
  * Send a command to the AC unit to set the given parameters
  */
-void set(ACSettings settings) {
+void send(ACSettings settings) {
+    os_printf("AC: send\n");
     uint8_t encoded[48];
     uint16_t buffer[48*2+3];
     uint8_t ret = acEncode(settings, encoded, 48);
@@ -169,26 +209,30 @@ static float measureTemperature(uint8_t channel) {
  * Update status with current temperature
  */
 void readTemperature(void) {
-    float t = NAN;
     // initialize SPI for communication with MCP3002
+    // For some reason, if this is not initialized after IR command is sent, it does not work
     spi_init(HSPI);
-    for (uint8_t i = 10; i; i--) {
-        t = measureTemperature(0);
-        if (t > -50 && t < 100)
-            break;
-    }
-    if (t != NAN)
-        status.temperatureIn = t;
+    status.temperatureIn = measureTemperature(0);
+    status.temperatureOut = measureTemperature(1);
+    os_printf("AC: Temp in: %d, temp out: %d\n", (int) status.temperatureIn, (int) status.temperatureOut);
+}
 
-    t = NAN;
-    for (uint8_t i = 10; i; i--) {
-        t = measureTemperature(1);
-        if (t > -50 && t < 100)
-            break;
-    }
-    if (t != NAN)
-        status.temperatureOut = t;
-    os_printf("Temp in: %d, temp out: %d\n", (int) status.temperatureIn, (int) status.temperatureOut);
+/**
+ * Determine if the AC unit is powered up
+ */
+bool isPowered() {
+    // TODO implement this
+    os_printf("AC: isPowered: Not implemented yet\n");
+    return true;
+}
+
+
+/**
+ * Update temperature and power status
+ */
+void update(void *arg) {
+    readTemperature();
+    status.started = isPowered();
 }
 
 /**
@@ -205,12 +249,10 @@ void acInit(void) {
     // initialize IR subsystem
     irInit();
 
-//    spi_init(HSPI);
-
-    readTemperature();
+    update(NULL);
 
     // set up repeating task to update temperature
     os_timer_disarm(&updateTimer);
-    os_timer_setfn(&updateTimer, (os_timer_func_t *)readTemperature, NULL);
-    os_timer_arm(&updateTimer, 60000, true);
+    os_timer_setfn(&updateTimer, (os_timer_func_t *)update, NULL);
+    os_timer_arm(&updateTimer, 10000, true);
 }

@@ -177,64 +177,6 @@ static void ICACHE_FLASH_ATTR mqttPublishedCb(uint32_t *args)
   os_printf("MQTT: Published\r\n");
 }
 
-static ACSettings ICACHE_FLASH_ATTR command2settings(char *dataBuf, uint32_t data_len)
-{
-    ACSettings settings;
-
-    if (os_strcmp(dataBuf, "ON") == 0)
-        settings.onOff = true;
-
-//    char *token;
-//    char *state;
-//    
-//    for (token = strtok_r(dataBuf, "&", &state);
-//         token != NULL;
-//         token = strtok_r(NULL, "&", &state))
-//    {
-//        char *name, *value, *tmp;
-//        name = strtok_r(token, "=", &tmp);
-//        value = strtok_r(NULL, "=", &tmp);
-//
-//        if (os_strcmp(name, "temp") == 0)
-//            settings.temp = atoi(value);
-//        if (os_strcmp(name, "mode") == 0)
-//        {
-//            if (os_strcmp(value, "SUN")==0) {
-//                settings.mode = SUN;
-//            } else if (os_strcmp(value, "FAN")==0) {
-//                settings.mode = FAN;
-//            } else if (os_strcmp(value, "COOL")==0) {
-//                settings.mode = COOL;
-//            } else if (os_strcmp(value, "SMART")==0) {
-//                settings.fan = SMART;
-//            } else if (os_strcmp(value, "DROPS")==0) {
-//                settings.fan = DROPS;
-//            } else {
-//                os_printf("Unknown mode '%s'", value);
-//            }
-//        }
-//        if (os_strcmp(name, "fan") == 0)
-//        {
-//            if (os_strcmp(value, "MAX")==0) {
-//                settings.fan = MAX;
-//            } else if (os_strcmp(value, "MED")==0) {
-//                settings.fan = MED;
-//            } else if (os_strcmp(value, "MIN")==0) {
-//                settings.fan = MIN;
-//            } else if (os_strcmp(value, "AUTO")==0) {
-//                settings.fan = AUTO;
-//            } else {
-//                os_printf("Unknown fan value '%s'", value);
-//            }
-//        }
-//        if (os_strcmp(name, "ON") == 0 && os_strcmp(value, "1") == 0)
-//            settings.onOff = true;
-//        if (os_strcmp(name, "sleep") == 0 && os_strcmp(value, "1") == 0)
-//            settings.sleep = true;
-//
-//    }
-    return settings;
-}
 
 static void ICACHE_FLASH_ATTR mqttDataCb(uint32_t *args, const char* topic, uint32_t topic_len, const char *data, uint32_t data_len)
 {
@@ -249,8 +191,11 @@ static void ICACHE_FLASH_ATTR mqttDataCb(uint32_t *args, const char* topic, uint
     if (os_strcmp(topicBuf, "/" MQTT_CLIENT_ID "/command") == 0)
     {
         // send IR command to AC unit
-        ACSettings settings = command2settings(dataBuf, data_len);
-        //set(settings);
+        if (os_strcmp(dataBuf, "ON") == 0)
+            start();
+
+        else if (os_strcmp(dataBuf, "OFF") == 0)
+            stop();
     }
     os_free(topicBuf);
     os_free(dataBuf);
@@ -344,7 +289,7 @@ void user_init(void) {
     // register repeated task 'sendData'
     os_timer_disarm(&mqttTimer);
     os_timer_setfn(&mqttTimer, (os_timer_func_t *)sendData, NULL);
-    os_timer_arm(&mqttTimer, 60000, true);
+    os_timer_arm(&mqttTimer, 10000, true);
 
 	os_printf("\nReady\n");
 }

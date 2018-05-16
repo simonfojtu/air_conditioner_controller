@@ -18,9 +18,16 @@ typedef struct {
     ACSettings settings;
     float temperatureIn;
     float temperatureOut;
+    bool started;
 } ACStatus;
 
-void set(ACSettings settings);
+void start(void);
+void stop(void);
+void setTemperature(uint8_t temperatures);
+void setMode(ac_mode_t mode);
+void setFanSpeed(ac_fan_t fan);
+
+void send(ACSettings settings);
 ACStatus get(void);
 void acInit(void);
 

@@ -57,7 +57,7 @@ void processCommand(const uint16_t* parsedDurations, const uint8_t numParsedDura
         os_delay_us(parsedDurations[index]);
         
         stopCarrier();
-        if (index < numParsedDurations)
+        if (index + 1 < numParsedDurations)
             os_delay_us(parsedDurations[index + 1]);
     }
 }
