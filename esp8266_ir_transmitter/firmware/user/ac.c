@@ -140,13 +140,16 @@ static float ICACHE_FLASH_ATTR ntc(int B, int R0, int R) {
 
 
 /**
- * Update status with current temperature
+ * Read temperature of a NTC thermistor via MCP3002
+ *
+ * @param channel - only value 0 or 1 is valid
+ * @return measured temperature in degrees Celsius
  */
-void readTemperature(void) {
+static float measureTemperature(uint8_t channel) {
     // value of R2 and R3 resistors
     // TODO allow for calibration
-    static const int R2 = 10000;
-    static const int R3 = 10000;
+    static const int R2 = 10000; // channel0
+    static const int R3 = 10000; // channel1
     // NTC R0 resistance value
     static const int NTC_R0 = 22000;
     // NTC B coefficient
@@ -154,13 +157,38 @@ void readTemperature(void) {
     // Power supply voltage
     static const float VCC = 3.3;
 
-    float vout;
     // SPI command: start, sgl, channel0, msbf
-    vout = spi_transaction(HSPI, 4, 0b1101, 0, 0, 0, 0, 11, 0) * VCC / 1024;
-    status.temperatureIn = ntc(NTC_B, NTC_R0, (VCC - vout) / vout * R2);
+    uint32_t adc = spi_transaction(HSPI, 4, 0b1101 | (1 << channel), 0, 0, 0, 0, 11, 0);
+    os_printf("ADC value (ch %d): %d\n", channel, adc);
+    float vout = adc * VCC / 1024;
+    float temperature = ntc(NTC_B, NTC_R0, (VCC - vout) / vout * (channel == 0 ? R2 : R3));
+    return temperature;
+}
 
-    vout = spi_transaction(HSPI, 4, 0b1111, 0, 0, 0, 0, 11, 0) * VCC / 1024;
-    status.temperatureOut = ntc(NTC_B, NTC_R0, (VCC - vout) / vout * R3);
+/**
+ * Update status with current temperature
+ */
+void readTemperature(void) {
+    float t = NAN;
+    // initialize SPI for communication with MCP3002
+    spi_init(HSPI);
+    for (uint8_t i = 10; i; i--) {
+        t = measureTemperature(0);
+        if (t > -50 && t < 100)
+            break;
+    }
+    if (t != NAN)
+        status.temperatureIn = t;
+
+    t = NAN;
+    for (uint8_t i = 10; i; i--) {
+        t = measureTemperature(1);
+        if (t > -50 && t < 100)
+            break;
+    }
+    if (t != NAN)
+        status.temperatureOut = t;
+    os_printf("Temp in: %d, temp out: %d\n", (int) status.temperatureIn, (int) status.temperatureOut);
 }
 
 /**
@@ -177,8 +205,7 @@ void acInit(void) {
     // initialize IR subsystem
     irInit();
 
-    // initialize SPI for communication with MCP3002
-    spi_init(HSPI);
+//    spi_init(HSPI);
 
     readTemperature();
 

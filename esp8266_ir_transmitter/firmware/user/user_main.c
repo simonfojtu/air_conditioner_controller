@@ -31,7 +31,19 @@ some pictures of cats.
 #include "mqtt.h"
 
 
+// TODO move applicable definitions to Makefile
+#define MQTT_HOST "10.0.0.3"
+#define MQTT_PORT 1883
+#define DEFAULT_SECURITY 0
+#define MQTT_CLIENT_ID "AC_01"
+#define MQTT_USER "USER"
+#define MQTT_PASS "PASS"
+#define MQTT_KEEPALIVE 120
+#define MQTT_CLEAN_SESSION 1
+
 static ETSTimer mqttTimer;
+static MQTT_Client mqttClient;
+
 
 //Function that tells the authentication system what users/passwords live on the system.
 //This is disabled in the default build; if you want to try it, enable the authBasic line in
@@ -115,17 +127,26 @@ HttpdBuiltInUrl builtInUrls[]={
 	{NULL, NULL, NULL}
 };
 
-// TODO move applicable definitions to Makefile
-#define MQTT_HOST "10.0.0.3"
-#define MQTT_PORT 1883
-#define DEFAULT_SECURITY 0
-#define MQTT_CLIENT_ID "AC_01"
-#define MQTT_USER "USER"
-#define MQTT_PASS "PASS"
-#define MQTT_KEEPALIVE 120
-#define MQTT_CLEAN_SESSION 1
 
-static MQTT_Client mqttClient;
+static void ICACHE_FLASH_ATTR sendData(void *arg)
+{
+    const uint8_t bufferLength = 16;
+    char buffer[bufferLength];
+    int len, integer, decimal;
+    ACStatus status = get();
+
+    // Send temperature in degrees C
+    integer = status.temperatureIn;
+    decimal = (status.temperatureIn - integer) * 10;
+    len = sprintf(buffer, "%d.%d", integer, decimal);
+    MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/update/tempIN", buffer, len, 0, 0);
+
+    integer = status.temperatureOut;
+    decimal = (status.temperatureOut - integer) * 10;
+    len = sprintf(buffer, "%d.%d", integer, decimal);
+    MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/update/tempOUT", buffer, len, 0, 0);
+}
+
 static void ICACHE_FLASH_ATTR wifiConnectCb(uint8_t status)
 {
   if (status == STATION_GOT_IP) {
@@ -134,12 +155,14 @@ static void ICACHE_FLASH_ATTR wifiConnectCb(uint8_t status)
     MQTT_Disconnect(&mqttClient);
   }
 }
+
 static void ICACHE_FLASH_ATTR mqttConnectedCb(uint32_t *args)
 {
   MQTT_Client* client = (MQTT_Client*)args;
   os_printf("MQTT: Connected\r\n");
   MQTT_Subscribe(client, "/" MQTT_CLIENT_ID "/command", 0);
   MQTT_Publish(client, "/" MQTT_CLIENT_ID "/status", "connected", 9, 0, 0);
+  sendData(NULL);
 }
 
 static void ICACHE_FLASH_ATTR mqttDisconnectedCb(uint32_t *args)
@@ -158,55 +181,58 @@ static ACSettings ICACHE_FLASH_ATTR command2settings(char *dataBuf, uint32_t dat
 {
     ACSettings settings;
 
-    char *token;
-    char *state;
-    
-    for (token = strtok_r(dataBuf, "&", &state);
-         token != NULL;
-         token = strtok_r(NULL, "&", &state))
-    {
-        char *name, *value, *tmp;
-        name = strtok_r(token, "=", &tmp);
-        value = strtok_r(NULL, "=", &tmp);
+    if (os_strcmp(dataBuf, "ON") == 0)
+        settings.onOff = true;
 
-        if (os_strcmp(name, "temp") == 0)
-            settings.temp = atoi(value);
-        if (os_strcmp(name, "mode") == 0)
-        {
-            if (os_strcmp(value, "SUN")==0) {
-                settings.mode = SUN;
-            } else if (os_strcmp(value, "FAN")==0) {
-                settings.mode = FAN;
-            } else if (os_strcmp(value, "COOL")==0) {
-                settings.mode = COOL;
-            } else if (os_strcmp(value, "SMART")==0) {
-                settings.fan = SMART;
-            } else if (os_strcmp(value, "DROPS")==0) {
-                settings.fan = DROPS;
-            } else {
-                os_printf("Unknown mode '%s'", value);
-            }
-        }
-        if (os_strcmp(name, "fan") == 0)
-        {
-            if (os_strcmp(value, "MAX")==0) {
-                settings.fan = MAX;
-            } else if (os_strcmp(value, "MED")==0) {
-                settings.fan = MED;
-            } else if (os_strcmp(value, "MIN")==0) {
-                settings.fan = MIN;
-            } else if (os_strcmp(value, "AUTO")==0) {
-                settings.fan = AUTO;
-            } else {
-                os_printf("Unknown fan value '%s'", value);
-            }
-        }
-        if (os_strcmp(name, "onoff") == 0 && os_strcmp(value, "1") == 0)
-            settings.onOff = true;
-        if (os_strcmp(name, "sleep") == 0 && os_strcmp(value, "1") == 0)
-            settings.sleep = true;
-
-    }
+//    char *token;
+//    char *state;
+//    
+//    for (token = strtok_r(dataBuf, "&", &state);
+//         token != NULL;
+//         token = strtok_r(NULL, "&", &state))
+//    {
+//        char *name, *value, *tmp;
+//        name = strtok_r(token, "=", &tmp);
+//        value = strtok_r(NULL, "=", &tmp);
+//
+//        if (os_strcmp(name, "temp") == 0)
+//            settings.temp = atoi(value);
+//        if (os_strcmp(name, "mode") == 0)
+//        {
+//            if (os_strcmp(value, "SUN")==0) {
+//                settings.mode = SUN;
+//            } else if (os_strcmp(value, "FAN")==0) {
+//                settings.mode = FAN;
+//            } else if (os_strcmp(value, "COOL")==0) {
+//                settings.mode = COOL;
+//            } else if (os_strcmp(value, "SMART")==0) {
+//                settings.fan = SMART;
+//            } else if (os_strcmp(value, "DROPS")==0) {
+//                settings.fan = DROPS;
+//            } else {
+//                os_printf("Unknown mode '%s'", value);
+//            }
+//        }
+//        if (os_strcmp(name, "fan") == 0)
+//        {
+//            if (os_strcmp(value, "MAX")==0) {
+//                settings.fan = MAX;
+//            } else if (os_strcmp(value, "MED")==0) {
+//                settings.fan = MED;
+//            } else if (os_strcmp(value, "MIN")==0) {
+//                settings.fan = MIN;
+//            } else if (os_strcmp(value, "AUTO")==0) {
+//                settings.fan = AUTO;
+//            } else {
+//                os_printf("Unknown fan value '%s'", value);
+//            }
+//        }
+//        if (os_strcmp(name, "ON") == 0 && os_strcmp(value, "1") == 0)
+//            settings.onOff = true;
+//        if (os_strcmp(name, "sleep") == 0 && os_strcmp(value, "1") == 0)
+//            settings.sleep = true;
+//
+//    }
     return settings;
 }
 
@@ -223,7 +249,8 @@ static void ICACHE_FLASH_ATTR mqttDataCb(uint32_t *args, const char* topic, uint
     if (os_strcmp(topicBuf, "/" MQTT_CLIENT_ID "/command") == 0)
     {
         // send IR command to AC unit
-        //set(command2settings(dataBuf, data_len + 1));
+        ACSettings settings = command2settings(dataBuf, data_len);
+        //set(settings);
     }
     os_free(topicBuf);
     os_free(dataBuf);
@@ -297,25 +324,6 @@ static void ICACHE_FLASH_ATTR mqttInit(void)
   os_timer_arm(&WiFiLinker, 1000, 0);
 }
 
-
-static void ICACHE_FLASH_ATTR sendData(void *arg)
-{
-    const uint8_t bufferLength = 16;
-    char buffer[bufferLength];
-    int len, integer, decimal;
-    ACStatus status = get();
-
-    // Send temperature in degrees C
-    integer = status.temperatureIn;
-    decimal = (status.temperatureIn - integer) * 10;
-    len = sprintf(buffer, "%d.%d", integer, decimal);
-    MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/update/tempIN", buffer, len, 0, 0);
-
-    integer = status.temperatureOut;
-    decimal = (status.temperatureOut - integer) * 10;
-    len = sprintf(buffer, "%d.%d", integer, decimal);
-    MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/update/tempOUT", buffer, len, 0, 0);
-}
 
 //Main routine. Initialize stdout, the I/O, filesystem and the webserver and we're done.
 void user_init(void) {
