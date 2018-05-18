@@ -139,12 +139,54 @@ static void ICACHE_FLASH_ATTR sendData(void *arg)
     integer = status.temperatureIn;
     decimal = (status.temperatureIn - integer) * 10;
     len = sprintf(buffer, "%d.%d", integer, decimal);
-    MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/update/tempIN", buffer, len, 0, 0);
+    MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/tempIN", buffer, len, 0, 0);
 
     integer = status.temperatureOut;
     decimal = (status.temperatureOut - integer) * 10;
     len = sprintf(buffer, "%d.%d", integer, decimal);
-    MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/update/tempOUT", buffer, len, 0, 0);
+    MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/tempOUT", buffer, len, 0, 0);
+
+    // Openhab2 does not care about the actual status (yet) and assumes its commands are always fulfilled
+    /*
+    len = sprintf(buffer, "%s", status.started ? "ON" : "OFF");
+    MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/power", buffer, len, 0, 0);
+
+    len = sprintf(buffer, "%d", status.settings.temp);
+    MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/tempSetpoint", buffer, len, 0, 0);
+
+    switch (status.settings.fan) {
+        case AUTO:
+            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/fan", "AUTO", 5, 0, 0);
+            break;
+        case MAX:
+            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/fan", "MAX", 4, 0, 0);
+            break;
+        case MED:
+            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/fan", "MED", 4, 0, 0);
+            break;
+        case MIN:
+            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/fan", "MIN", 4, 0, 0);
+            break;
+    }
+
+    switch (status.settings.mode) {
+        case SUN:
+            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/mode", "SUN", 4, 0, 0);
+            break;
+        case FAN:
+            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/mode", "FAN", 4, 0, 0);
+            break;
+        case COOL:
+            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/mode", "COOL", 5, 0, 0);
+            break;
+        case SMART:
+            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/mode", "SMART", 6, 0, 0);
+            break;
+        case DROPS:
+            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/mode", "DROPS", 6, 0, 0);
+            break;
+    }
+    */
 }
 
 static void ICACHE_FLASH_ATTR wifiConnectCb(uint8_t status)
@@ -160,7 +202,10 @@ static void ICACHE_FLASH_ATTR mqttConnectedCb(uint32_t *args)
 {
   MQTT_Client* client = (MQTT_Client*)args;
   os_printf("MQTT: Connected\r\n");
-  MQTT_Subscribe(client, "/" MQTT_CLIENT_ID "/command", 0);
+  MQTT_Subscribe(client, "/" MQTT_CLIENT_ID "/command/power", 0);
+  MQTT_Subscribe(client, "/" MQTT_CLIENT_ID "/command/temperature", 0);
+  MQTT_Subscribe(client, "/" MQTT_CLIENT_ID "/command/fan", 0);
+  MQTT_Subscribe(client, "/" MQTT_CLIENT_ID "/command/mode", 0);
   MQTT_Publish(client, "/" MQTT_CLIENT_ID "/status", "connected", 9, 0, 0);
   sendData(NULL);
 }
@@ -188,15 +233,42 @@ static void ICACHE_FLASH_ATTR mqttDataCb(uint32_t *args, const char* topic, uint
     os_memcpy(dataBuf, data, data_len);
     dataBuf[data_len] = 0;
     os_printf("Received topic: %s, data: %s \r\n", topicBuf, dataBuf);
-    if (os_strcmp(topicBuf, "/" MQTT_CLIENT_ID "/command") == 0)
+    if (os_strcmp(topicBuf, "/" MQTT_CLIENT_ID "/command/power") == 0)
     {
-        // send IR command to AC unit
         if (os_strcmp(dataBuf, "ON") == 0)
             start();
-
         else if (os_strcmp(dataBuf, "OFF") == 0)
             stop();
     }
+    else if (os_strcmp(topicBuf, "/" MQTT_CLIENT_ID "/command/temperature") == 0)
+    {
+        setTemperature(atoi(dataBuf));
+    }
+    else if (os_strcmp(topicBuf, "/" MQTT_CLIENT_ID "/command/fan") == 0)
+    {
+        if (os_strcmp(dataBuf, "AUTO") == 0)
+            setFanSpeed(AUTO);
+        else if (os_strcmp(dataBuf, "MAX") == 0)
+            setFanSpeed(MAX);
+        else if (os_strcmp(dataBuf, "MED") == 0)
+            setFanSpeed(MED);
+        else if (os_strcmp(dataBuf, "MIN") == 0)
+            setFanSpeed(MIN);
+    }
+    else if (os_strcmp(topicBuf, "/" MQTT_CLIENT_ID "/command/mode") == 0)
+    {
+        if (os_strcmp(dataBuf, "SUN") == 0)
+            setMode(SUN);
+        else if (os_strcmp(dataBuf, "COOL") == 0)
+            setMode(COOL);
+        else if (os_strcmp(dataBuf, "FAN") == 0)
+            setMode(FAN);
+        else if (os_strcmp(dataBuf, "SMART") == 0)
+            setMode(SMART);
+        else if (os_strcmp(dataBuf, "DROPS") == 0)
+            setMode(DROPS);
+    }
+
     os_free(topicBuf);
     os_free(dataBuf);
 }

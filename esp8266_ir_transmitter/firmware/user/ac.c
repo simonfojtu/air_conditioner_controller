@@ -124,21 +124,27 @@ void stop(void) {
     }
 }
 
-void setTemperature(uint8_t temperatures) {
-    os_printf("AC: setTemperature: Not implemented yet\n");
-// TODO implement this
+void setTemperature(uint8_t temperature) {
+    if (isPowered()) {
+        status.settings.temp = temperature;
+        send(status.settings);
+    }
 }
 
 
 void setMode(ac_mode_t mode) {
-    os_printf("AC: setMode: Not implemented yet\n");
-// TODO implement this
+    if (isPowered()) {
+        status.settings.mode = mode;
+        send(status.settings);
+    }
 }
 
 
 void setFanSpeed(ac_fan_t fan) {
-    os_printf("AC: setFanSpeed: Not implemented yet\n");
-// TODO implement this
+    if (isPowered()) {
+        status.settings.fan = fan;
+        send(status.settings);
+    }
 }
 
 
