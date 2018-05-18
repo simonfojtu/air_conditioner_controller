@@ -10,3 +10,5 @@ export SDK_BASE=$ESP8266_TOOLCHAIN/esp-open-sdk/ESP8266_NONOS_SDK-2.1.0-18-g6124
 export ESPTOOL=$ESP8266_TOOLCHAIN/esp-open-sdk/esptool/esptool.py
 export ESPPORT=/dev/ttyUSB0
 export ESPBAUD=460800
+
+export ESPIP=<ip address of the device>
