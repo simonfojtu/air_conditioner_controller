@@ -146,8 +146,6 @@ static void ICACHE_FLASH_ATTR sendData(void *arg)
     len = sprintf(buffer, "%d.%d", integer, decimal);
     MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/tempOUT", buffer, len, 0, 0);
 
-    // Openhab2 does not care about the actual status (yet) and assumes its commands are always fulfilled
-    /*
     len = sprintf(buffer, "%s", status.started ? "ON" : "OFF");
     MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/power", buffer, len, 0, 0);
 
@@ -186,7 +184,6 @@ static void ICACHE_FLASH_ATTR sendData(void *arg)
             MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/mode", "DROPS", 6, 0, 0);
             break;
     }
-    */
 }
 
 static void ICACHE_FLASH_ATTR wifiConnectCb(uint8_t status)
@@ -361,7 +358,7 @@ void user_init(void) {
     // register repeated task 'sendData'
     os_timer_disarm(&mqttTimer);
     os_timer_setfn(&mqttTimer, (os_timer_func_t *)sendData, NULL);
-    os_timer_arm(&mqttTimer, 10000, true);
+    os_timer_arm(&mqttTimer, 20000, true);
 
 	os_printf("\nReady\n");
 }
