@@ -216,7 +216,7 @@ static float measureTemperature(uint8_t channel) {
  */
 void readTemperature(void) {
     // initialize SPI for communication with MCP3002
-    // For some reason, if this is not initialized after IR command is sent, it does not work
+    // GPIO14 (SPI CLK) is reused for IR output, thus SPI needs to be reinitialized
     spi_init(HSPI);
     status.temperatureIn = measureTemperature(0);
     status.temperatureOut = measureTemperature(1);
