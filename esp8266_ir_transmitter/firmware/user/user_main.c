@@ -149,41 +149,44 @@ static void ICACHE_FLASH_ATTR sendData(void *arg)
     len = sprintf(buffer, "%s", status.started ? "ON" : "OFF");
     MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/power", buffer, len, 0, 0);
 
+    // Do not send fan speed and mode until settings are stored in FLASH not to be reset on reboot
+    /*
     len = sprintf(buffer, "%d", status.settings.temp);
     MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/tempSetpoint", buffer, len, 0, 0);
 
     switch (status.settings.fan) {
         case AUTO:
-            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/fan", "AUTO", 5, 0, 0);
+            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/fan", "AUTO", 4, 0, 0);
             break;
         case MAX:
-            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/fan", "MAX", 4, 0, 0);
+            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/fan", "MAX", 3, 0, 0);
             break;
         case MED:
-            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/fan", "MED", 4, 0, 0);
+            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/fan", "MED", 3, 0, 0);
             break;
         case MIN:
-            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/fan", "MIN", 4, 0, 0);
+            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/fan", "MIN", 3, 0, 0);
             break;
     }
 
     switch (status.settings.mode) {
         case SUN:
-            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/mode", "SUN", 4, 0, 0);
+            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/mode", "SUN", 3, 0, 0);
             break;
         case FAN:
-            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/mode", "FAN", 4, 0, 0);
+            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/mode", "FAN", 3, 0, 0);
             break;
         case COOL:
-            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/mode", "COOL", 5, 0, 0);
+            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/mode", "COOL", 4, 0, 0);
             break;
         case SMART:
-            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/mode", "SMART", 6, 0, 0);
+            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/mode", "SMART", 5, 0, 0);
             break;
         case DROPS:
-            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/mode", "DROPS", 6, 0, 0);
+            MQTT_Publish(&mqttClient, "/" MQTT_CLIENT_ID "/state/mode", "DROPS", 5, 0, 0);
             break;
     }
+    */
 }
 
 static void ICACHE_FLASH_ATTR wifiConnectCb(uint8_t status)
@@ -320,14 +323,20 @@ static void ICACHE_FLASH_ATTR wifi_check_ip(void *arg)
 
 static void ICACHE_FLASH_ATTR mqttInit(void)
 {
-  MQTT_InitConnection(&mqttClient, MQTT_HOST, MQTT_PORT, DEFAULT_SECURITY);
+  MQTT_InitConnection(&mqttClient, (uint8_t *) MQTT_HOST, MQTT_PORT, DEFAULT_SECURITY);
 
-  if ( !MQTT_InitClient(&mqttClient, MQTT_CLIENT_ID, MQTT_USER, MQTT_PASS, MQTT_KEEPALIVE, MQTT_CLEAN_SESSION) )
+  if ( !MQTT_InitClient(&mqttClient,
+              (uint8_t *) MQTT_CLIENT_ID,
+              (uint8_t *) MQTT_USER,
+              (uint8_t *) MQTT_PASS,
+              MQTT_KEEPALIVE,
+              MQTT_CLEAN_SESSION)
+     )
   {
     os_printf("Failed to initialize properly. Check MQTT version.\n");
     return;
   }
-  MQTT_InitLWT(&mqttClient, "/" MQTT_CLIENT_ID "/status", "offline", 0, 0);
+  MQTT_InitLWT(&mqttClient, (uint8_t *) ("/" MQTT_CLIENT_ID "/status"), (uint8_t *) "offline", 0, 0);
   MQTT_OnConnected(&mqttClient, mqttConnectedCb);
   MQTT_OnDisconnected(&mqttClient, mqttDisconnectedCb);
   MQTT_OnPublished(&mqttClient, mqttPublishedCb);
